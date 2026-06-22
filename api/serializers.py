@@ -19,10 +19,12 @@ class RegisterSerializer(serializers.ModelSerializer):
         model = User
         fields = ['username', 'first_name', 'last_name', 'email', 'phone', 'city', 'state', 'password', 'password2']
 
+
     def validate(self, data):
         if data['password'] != data['password2']:
             raise serializers.ValidationError("Passwords do not match.")
         return data
+
 
     def create(self, validated_data):
         validated_data.pop('password2')
@@ -39,6 +41,7 @@ class EmergencyContactSerializer(serializers.ModelSerializer):
 
 class SOSAlertSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
+
     class Meta:
         model = SOSAlert
         fields = ['id', 'user', 'latitude', 'longitude', 'address', 'status', 'message', 'triggered_at', 'resolved_at']
@@ -46,12 +49,14 @@ class SOSAlertSerializer(serializers.ModelSerializer):
 
 class NearbyResourceSerializer(serializers.ModelSerializer):
     type_display = serializers.CharField(source='get_type_display', read_only=True)
+
     class Meta:
         model = NearbyResource
         fields = ['id', 'name', 'type', 'type_display', 'phone', 'address', 'city', 'state', 'latitude', 'longitude']
 
 class HelplineSerializer(serializers.ModelSerializer):
     category_display = serializers.CharField(source='get_category_display', read_only=True)
+
     class Meta:
         model = Helpline
         fields = ['id', 'name', 'number', 'category', 'category_display', 'description', 'available_24x7', 'state']

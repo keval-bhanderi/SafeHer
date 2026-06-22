@@ -1,9 +1,7 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
-from django.utils import timezone
 from alerts.models import SOSAlert
 from contacts.models import EmergencyContact
-from nearby.models import NearbyResource
 from helpline.models import Helpline
 
 @login_required

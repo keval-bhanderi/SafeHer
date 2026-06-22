@@ -3,7 +3,6 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
 from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
 from .models import SOSAlert
 from contacts.models import EmergencyContact
 from notifications.utils import send_sos_notifications
