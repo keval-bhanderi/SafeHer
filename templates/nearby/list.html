@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+{% block title %}Nearby Resources{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+{% endblock %}
+{% block content %}
+<h4 class="fw-bold mb-4"><i class="fas fa-map-marker-alt me-2" style="color:var(--pink)"></i>Nearby Resources</h4>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label fw-semibold">Type</label>
+        <select name="type" class="form-select">
+          <option value="">All Types</option>
+          <option value="police" {% if type == 'police' %}selected{% endif %}>Police Station</option>
+          <option value="ngo" {% if type == 'ngo' %}selected{% endif %}>NGO</option>
+          <option value="hospital" {% if type == 'hospital' %}selected{% endif %}>Hospital</option>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label fw-semibold">City</label>
+        <input type="text" name="city" class="form-control" value="{{ city }}" placeholder="Enter city">
+      </div>
+      <div class="col-md-4">
+        <button type="submit" class="btn btn-pink w-100">
+          <i class="fas fa-search me-1"></i>Search
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="map" style="height:300px;border-radius:16px;" class="mb-4"></div>
+
+<div class="row g-3">
+  {% for resource, distance in resources %}
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-start justify-content-between">
+          <div>
+            <h6 class="fw-bold mb-1">{{ resource.name }}</h6>
+            <span class="badge mb-2
+              {% if resource.type == 'police' %}bg-primary
+              {% elif resource.type == 'ngo' %}bg-success
+              {% else %}bg-info{% endif %}">
+              {{ resource.get_type_display }}
+            </span>
+            <p class="text-muted small mb-1"><i class="fas fa-map-marker-alt me-1"></i>{{ resource.address|default:resource.city }}</p>
+            {% if resource.phone %}
+            <p class="mb-0"><i class="fas fa-phone me-1 text-success"></i>
+              <a href="tel:{{ resource.phone }}" class="text-decoration-none fw-semibold">{{ resource.phone }}</a>
+            </p>
+            {% endif %}
+          </div>
+          {% if distance %}
+          <span class="badge bg-light text-dark ms-2">{{ distance }} km</span>
+          {% endif %}
+        </div>
+        {% if resource.latitude %}
+        <a href="https://maps.google.com/?q={{ resource.latitude }},{{ resource.longitude }}" target="_blank"
+           class="btn btn-sm btn-outline-primary mt-2">
+          <i class="fas fa-directions me-1"></i>Get Directions
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="col-12">
+    <div class="card text-center py-5">
+      <div class="card-body">
+        <i class="fas fa-map fa-3x text-muted mb-3"></i>
+        <h5>No Resources Found</h5>
+        <p class="text-muted">Try searching a different city or type.</p>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const map = L.map('map').setView([20.5937, 78.9629], 5);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap'
+}).addTo(map);
+
+if (navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition(pos => {
+    map.setView([pos.coords.latitude, pos.coords.longitude], 12);
+    L.marker([pos.coords.latitude, pos.coords.longitude])
+      .addTo(map).bindPopup('You are here').openPopup();
+  });
+}
+
+{% for resource, distance in resources %}
+{% if resource.latitude %}
+L.marker([{{ resource.latitude }}, {{ resource.longitude }}])
+  .addTo(map)
+  .bindPopup('<b>{{ resource.name }}</b><br>{{ resource.get_type_display }}<br>{{ resource.phone }}');
+{% endif %}
+{% endfor %}
+</script>
+{% endblock %}

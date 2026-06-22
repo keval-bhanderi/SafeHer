@@ -1,0 +1,482 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  .voice-card {
+    border: 2px solid transparent;
+    transition: border-color 0.3s;
+  }
+  .voice-card.listening {
+    border-color: #e91e8c;
+    box-shadow: 0 0 20px rgba(233,30,140,0.3);
+  }
+  .mic-btn {
+    width: 80px; height: 80px; border-radius: 50%;
+    border: none; font-size: 1.8rem;
+    background: linear-gradient(135deg, #7b2d8b, #e91e8c);
+    color: #fff;
+    transition: all 0.3s;
+    box-shadow: 0 4px 15px rgba(123,45,139,0.4);
+  }
+  .mic-btn.listening {
+    background: linear-gradient(135deg, #dc3545, #ff6b35);
+    animation: mic-pulse 1s infinite;
+    box-shadow: 0 0 0 0 rgba(220,53,69,0.7);
+  }
+  @keyframes mic-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(220,53,69,0.7); }
+    70%  { box-shadow: 0 0 0 18px rgba(220,53,69,0); }
+    100% { box-shadow: 0 0 0 0 rgba(220,53,69,0); }
+  }
+  .keyword-badge {
+    background: var(--pink-light);
+    color: var(--pink);
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    display: inline-block;
+    margin: 3px;
+  }
+  .transcript-box {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 10px 14px;
+    min-height: 38px;
+    font-size: 0.9rem;
+    color: #555;
+    border: 1px dashed #dee2e6;
+    transition: all 0.3s;
+  }
+  .transcript-box.keyword-detected {
+    background: #fff3cd;
+    border-color: #ffc107;
+    color: #856404;
+    font-weight: 600;
+  }
+  .voice-status-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: #6c757d;
+    display: inline-block;
+    margin-right: 6px;
+    transition: background 0.3s;
+  }
+  .voice-status-dot.active { background: #28a745; animation: blink 1s infinite; }
+  .voice-status-dot.error  { background: #dc3545; }
+  @keyframes blink {
+    0%,100% { opacity: 1; } 50% { opacity: 0.3; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{% if active_alert %}
+<div class="alert-banner p-3 mb-4 d-flex align-items-center justify-content-between">
+  <div>
+    <i class="fas fa-exclamation-triangle fa-lg me-2"></i>
+    <strong>ACTIVE SOS ALERT!</strong> &nbsp; Triggered at {{ active_alert.triggered_at|date:"d M Y, h:i A" }}
+  </div>
+  <a href="{% url 'alerts:resolve' active_alert.id %}" class="btn btn-light btn-sm fw-bold">Mark Resolved</a>
+</div>
+{% endif %}
+
+<!-- Stats Row -->
+<div class="row g-3 mb-4">
+  <div class="col-md-3 col-6">
+    <div class="stat-card" style="background:linear-gradient(135deg,#7b2d8b,#e91e8c)">
+      <i class="fas fa-bell fa-2x mb-2 opacity-75"></i>
+      <h3 class="fw-bold mb-0">{{ total_alerts }}</h3>
+      <small>Total Alerts</small>
+    </div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="stat-card" style="background:linear-gradient(135deg,#e91e8c,#ff6b6b)">
+      <i class="fas fa-address-book fa-2x mb-2 opacity-75"></i>
+      <h3 class="fw-bold mb-0">{{ contacts_count }}/5</h3>
+      <small>Emergency Contacts</small>
+    </div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="stat-card" style="background:linear-gradient(135deg,#667eea,#764ba2)">
+      <i class="fas fa-phone fa-2x mb-2 opacity-75"></i>
+      <h3 class="fw-bold mb-0">1091</h3>
+      <small>Women Helpline</small>
+    </div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="stat-card" style="background:linear-gradient(135deg,#f093fb,#f5576c)">
+      <i class="fas fa-shield-alt fa-2x mb-2 opacity-75"></i>
+      <h3 class="fw-bold mb-0">112</h3>
+      <small>Emergency Number</small>
+    </div>
+  </div>
+</div>
+
+<!-- SOS + Voice Row -->
+<div class="row g-4">
+
+  <!-- Manual SOS Button -->
+  <div class="col-md-4">
+    <div class="card h-100 text-center">
+      <div class="card-body d-flex flex-column align-items-center justify-content-center py-4">
+        <h5 class="fw-bold mb-1">Manual SOS</h5>
+        <p class="text-muted small mb-4">Press to send alert to all emergency contacts instantly</p>
+        <button id="sosBtn" class="btn btn-sos mb-3" onclick="triggerSOS()">
+          <i class="fas fa-exclamation-triangle me-2"></i>SEND SOS
+        </button>
+        <small class="text-muted">Your location will be shared automatically</small>
+        <div id="sosStatus" class="mt-3 w-100"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Voice SOS Card -->
+  <div class="col-md-4">
+    <div class="card h-100 voice-card" id="voiceCard">
+      <div class="card-body d-flex flex-column align-items-center justify-content-center py-4">
+        <h5 class="fw-bold mb-1">Voice SOS</h5>
+        <p class="text-muted small mb-3">Say a keyword to auto-trigger SOS alert</p>
+
+        <!-- Keywords display -->
+        <div class="mb-3 text-center">
+          <span class="keyword-badge"><i class="fas fa-microphone me-1"></i>help me</span>
+          <span class="keyword-badge"><i class="fas fa-microphone me-1"></i>safeher</span>
+          <span class="keyword-badge"><i class="fas fa-microphone me-1"></i>emergency</span>
+          <span class="keyword-badge"><i class="fas fa-microphone me-1"></i>bachao</span>
+        </div>
+
+        <!-- Mic toggle button -->
+        <button class="mic-btn mb-3" id="micBtn" onclick="toggleVoiceListening()" title="Toggle voice listening">
+          <i class="fas fa-microphone" id="micIcon"></i>
+        </button>
+
+        <!-- Status indicator -->
+        <div class="d-flex align-items-center mb-2">
+          <span class="voice-status-dot" id="voiceDot"></span>
+          <small id="voiceStatusText" class="text-muted">Click mic to start listening</small>
+        </div>
+
+        <!-- Live transcript -->
+        <div class="transcript-box w-100 text-center" id="transcriptBox">
+          <span class="text-muted" id="transcriptText">Heard words will appear here...</span>
+        </div>
+
+        <!-- Browser support warning -->
+        <div id="voiceNotSupported" class="alert alert-warning py-2 mt-2 small d-none">
+          <i class="fas fa-exclamation-triangle me-1"></i>
+          Voice recognition not supported in this browser. Use Chrome.
+        </div>
+
+        <div id="voiceSosStatus" class="mt-2 w-100"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Helplines -->
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header fw-bold" style="background:var(--pink-light)">
+        <i class="fas fa-phone me-2" style="color:var(--pink)"></i>Quick Helplines
+      </div>
+      <div class="card-body p-0">
+        {% for h in helplines %}
+        <div class="d-flex align-items-center justify-content-between p-3 border-bottom">
+          <div>
+            <div class="fw-semibold small">{{ h.name }}</div>
+            <div class="text-muted" style="font-size:0.8rem">{{ h.get_category_display }}</div>
+          </div>
+          <a href="tel:{{ h.number }}" class="btn btn-sm btn-pink fw-bold">
+            <i class="fas fa-phone me-1"></i>{{ h.number }}
+          </a>
+        </div>
+        {% empty %}
+        <div class="p-3 text-muted">No helplines available.</div>
+        {% endfor %}
+        <div class="p-2 text-center">
+          <a href="{% url 'helpline:list' %}" class="btn btn-sm btn-outline-secondary">View All</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Recent Alerts Row -->
+<div class="row g-4 mt-1">
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header fw-bold" style="background:var(--pink-light)">
+        <i class="fas fa-history me-2" style="color:var(--pink)"></i>Recent Alerts
+      </div>
+      <div class="card-body p-0">
+        {% for alert in recent_alerts %}
+        <div class="p-3 border-bottom">
+          <div class="d-flex justify-content-between align-items-center">
+            <span class="badge rounded-pill
+              {% if alert.status == 'active' %}bg-danger
+              {% elif alert.status == 'resolved' %}bg-success
+              {% else %}bg-warning text-dark{% endif %}">
+              {{ alert.get_status_display }}
+            </span>
+            <small class="text-muted">{{ alert.triggered_at|date:"d M, h:i A" }}</small>
+          </div>
+        </div>
+        {% empty %}
+        <div class="p-3 text-center text-muted">
+          <i class="fas fa-check-circle fa-2x mb-2 text-success"></i>
+          <p class="small mb-0">No alerts yet. Stay safe!</p>
+        </div>
+        {% endfor %}
+        {% if recent_alerts %}
+        <div class="p-2 text-center">
+          <a href="{% url 'alerts:history' %}" class="btn btn-sm btn-outline-secondary">Full History</a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Map -->
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-header fw-bold" style="background:var(--pink-light)">
+        <i class="fas fa-map-marked-alt me-2" style="color:var(--pink)"></i>Your Location
+      </div>
+      <div class="card-body p-0">
+        <div id="map" style="height:280px;border-radius:0 0 16px 16px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ── Location ──────────────────────────────────────────────────────────────
+let userLat = null, userLng = null;
+const map = L.map('map').setView([20.5937, 78.9629], 5);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap'
+}).addTo(map);
+
+if (navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition(pos => {
+    userLat = pos.coords.latitude;
+    userLng = pos.coords.longitude;
+    map.setView([userLat, userLng], 14);
+    L.marker([userLat, userLng]).addTo(map)
+      .bindPopup('<b>You are here</b>').openPopup();
+  });
+}
+
+// ── SOS trigger (shared by both manual + voice) ───────────────────────────
+const CSRF_TOKEN = '{{ csrf_token }}';
+const SOS_URL    = '{% url "alerts:trigger" %}';
+
+function triggerSOS(source = 'manual') {
+  const btn    = document.getElementById('sosBtn');
+  const status = document.getElementById('sosStatus');
+
+  if (source === 'manual') {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Sending...';
+    status.innerHTML = '';
+  }
+
+  fetch(SOS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+    body: JSON.stringify({
+      latitude:  userLat,
+      longitude: userLng,
+      address:   userLat ? `${userLat}, ${userLng}` : 'Unknown location',
+      message:   source === 'voice' ? 'Auto-triggered by voice keyword' : ''
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      if (source === 'manual') {
+        status.innerHTML = '<div class="alert alert-danger py-2"><i class="fas fa-check me-1"></i>SOS Sent! Contacts notified.</div>';
+        btn.innerHTML = '<i class="fas fa-check me-2"></i>SOS SENT!';
+        btn.style.background = '#28a745';
+      }
+      setTimeout(() => window.location.reload(), 2500);
+    }
+  })
+  .catch(() => {
+    if (source === 'manual') {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>SEND SOS';
+      status.innerHTML = '<div class="alert alert-warning py-2">Connection error. Try again.</div>';
+    }
+  });
+}
+
+// ── Voice SOS ─────────────────────────────────────────────────────────────
+const KEYWORDS = ['help me', 'help', 'safeher', 'emergency', 'bachao', 'bachaoo', 'save me'];
+
+let recognition   = null;
+let isListening   = false;
+let voiceCooldown = false;  // prevents multiple triggers on one keyword
+
+const micBtn         = document.getElementById('micBtn');
+const micIcon        = document.getElementById('micIcon');
+const voiceDot       = document.getElementById('voiceDot');
+const voiceStatusTxt = document.getElementById('voiceStatusText');
+const transcriptBox  = document.getElementById('transcriptBox');
+const transcriptText = document.getElementById('transcriptText');
+const voiceCard      = document.getElementById('voiceCard');
+const voiceStatus    = document.getElementById('voiceSosStatus');
+const notSupported   = document.getElementById('voiceNotSupported');
+
+// Check browser support
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (!SpeechRecognition) {
+  notSupported.classList.remove('d-none');
+  micBtn.disabled = true;
+  micBtn.style.opacity = '0.4';
+}
+
+function setupRecognition() {
+  recognition = new SpeechRecognition();
+  recognition.continuous   = true;   // keep listening
+  recognition.interimResults = true; // show partial results live
+  recognition.lang         = 'en-IN'; // Indian English (also picks up Hindi accents)
+  recognition.maxAlternatives = 3;
+
+  recognition.onstart = () => {
+    isListening = true;
+    micIcon.className = 'fas fa-microphone-slash';
+    micBtn.classList.add('listening');
+    voiceCard.classList.add('listening');
+    voiceDot.classList.add('active');
+    voiceDot.classList.remove('error');
+    voiceStatusTxt.textContent = 'Listening... say a keyword to trigger SOS';
+    voiceStatusTxt.style.color = '#28a745';
+  };
+
+  recognition.onresult = (event) => {
+    let interimTranscript = '';
+    let finalTranscript   = '';
+
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const t = event.results[i][0].transcript.toLowerCase().trim();
+      if (event.results[i].isFinal) finalTranscript += t;
+      else interimTranscript += t;
+    }
+
+    const displayText = finalTranscript || interimTranscript;
+    transcriptText.textContent = displayText || 'Listening...';
+    transcriptBox.classList.remove('keyword-detected');
+
+    // Check for keyword match
+    const combined = (finalTranscript + ' ' + interimTranscript).toLowerCase();
+    const matched  = KEYWORDS.find(kw => combined.includes(kw));
+
+    if (matched && !voiceCooldown) {
+      voiceCooldown = true;
+      transcriptBox.classList.add('keyword-detected');
+      transcriptText.textContent = `🚨 Keyword detected: "${matched}" — Triggering SOS!`;
+
+      // Flash the screen red briefly
+      document.body.style.background = 'rgba(220,53,69,0.15)';
+      setTimeout(() => document.body.style.background = '', 800);
+
+      voiceStatus.innerHTML = `
+        <div class="alert alert-danger py-2 fw-bold text-center">
+          <i class="fas fa-exclamation-triangle me-1"></i>
+          Voice SOS triggered — "${matched}" detected!
+        </div>`;
+
+      // Trigger SOS
+      triggerSOS('voice');
+
+      // Stop listening after trigger (cooldown: 10s to prevent re-trigger)
+      setTimeout(() => {
+        voiceCooldown = false;
+        if (isListening && recognition) {
+          transcriptBox.classList.remove('keyword-detected');
+          transcriptText.textContent = 'Listening...';
+        }
+      }, 10000);
+    }
+  };
+
+  recognition.onerror = (event) => {
+    // 'no-speech' is normal (silence) — just restart, don't show as error
+    if (event.error === 'no-speech') {
+      if (isListening) recognition.start();
+      return;
+    }
+    // 'aborted' happens when we stop deliberately — also normal
+    if (event.error === 'aborted') return;
+
+    console.warn('Voice error:', event.error);
+    voiceDot.classList.remove('active');
+    voiceDot.classList.add('error');
+    voiceStatusTxt.textContent = `Mic error: ${event.error}. Click to retry.`;
+    voiceStatusTxt.style.color = '#dc3545';
+    isListening = false;
+    micBtn.classList.remove('listening');
+    voiceCard.classList.remove('listening');
+    micIcon.className = 'fas fa-microphone';
+  };
+
+  recognition.onend = () => {
+    // Auto-restart if still supposed to be listening (browser ends session every ~60s)
+    if (isListening && !voiceCooldown) {
+      try { recognition.start(); } catch(e) {}
+    } else if (!isListening) {
+      micIcon.className = 'fas fa-microphone';
+      micBtn.classList.remove('listening');
+      voiceCard.classList.remove('listening');
+      voiceDot.classList.remove('active');
+      voiceStatusTxt.textContent = 'Click mic to start listening';
+      voiceStatusTxt.style.color = '';
+      transcriptText.textContent = 'Heard words will appear here...';
+    }
+  };
+}
+
+function toggleVoiceListening() {
+  if (!SpeechRecognition) return;
+
+  if (!isListening) {
+    // Start listening
+    setupRecognition();
+    try {
+      recognition.start();
+    } catch(e) {
+      voiceStatusTxt.textContent = 'Could not start microphone. Check permissions.';
+    }
+  } else {
+    // Stop listening
+    isListening = false;
+    if (recognition) {
+      recognition.abort();
+      recognition = null;
+    }
+    micIcon.className = 'fas fa-microphone';
+    micBtn.classList.remove('listening');
+    voiceCard.classList.remove('listening');
+    voiceDot.classList.remove('active');
+    voiceStatusTxt.textContent = 'Click mic to start listening';
+    voiceStatusTxt.style.color = '';
+    transcriptText.textContent = 'Heard words will appear here...';
+    voiceStatus.innerHTML = '';
+  }
+}
+
+// Warn user if they try to leave while voice is active
+window.addEventListener('beforeunload', (e) => {
+  if (isListening) {
+    e.preventDefault();
+    e.returnValue = 'Voice SOS is active. Are you sure you want to leave?';
+  }
+});
+</script>
+{% endblock %}

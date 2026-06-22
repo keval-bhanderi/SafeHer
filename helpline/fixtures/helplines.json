@@ -1,0 +1,10 @@
+[
+  {"model": "helpline.helpline", "pk": 1, "fields": {"name": "Women Helpline", "number": "1091", "category": "women", "description": "National women helpline for distress situations", "available_24x7": true, "state": "", "is_active": true}},
+  {"model": "helpline.helpline", "pk": 2, "fields": {"name": "Police", "number": "100", "category": "police", "description": "National police emergency number", "available_24x7": true, "state": "", "is_active": true}},
+  {"model": "helpline.helpline", "pk": 3, "fields": {"name": "Emergency (All Services)", "number": "112", "category": "police", "description": "Unified emergency helpline - police, fire, ambulance", "available_24x7": true, "state": "", "is_active": true}},
+  {"model": "helpline.helpline", "pk": 4, "fields": {"name": "Ambulance", "number": "108", "category": "medical", "description": "Free ambulance service", "available_24x7": true, "state": "", "is_active": true}},
+  {"model": "helpline.helpline", "pk": 5, "fields": {"name": "Child Helpline", "number": "1098", "category": "child", "description": "For children in distress", "available_24x7": true, "state": "", "is_active": true}},
+  {"model": "helpline.helpline", "pk": 6, "fields": {"name": "iCall Mental Health", "number": "9152987821", "category": "mental", "description": "Psychosocial helpline by TISS", "available_24x7": false, "state": "", "is_active": true}},
+  {"model": "helpline.helpline", "pk": 7, "fields": {"name": "National Legal Services", "number": "15100", "category": "legal", "description": "Free legal aid helpline", "available_24x7": false, "state": "", "is_active": true}},
+  {"model": "helpline.helpline", "pk": 8, "fields": {"name": "Domestic Violence Helpline", "number": "181", "category": "women", "description": "For domestic violence victims", "available_24x7": true, "state": "", "is_active": true}}
+]

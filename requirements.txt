@@ -1,0 +1,13 @@
+django>=6.0
+djangorestframework>=3.17
+djangorestframework-simplejwt>=5.5
+django-cors-headers>=4.9
+django-environ>=0.13
+django-filter>=25.2
+Pillow>=10.0
+gunicorn>=21.0
+whitenoise>=6.6
+
+# Optional database drivers (uncomment what you need)
+# psycopg2-binary>=2.9   # PostgreSQL
+# mysqlclient>=2.2       # MySQL

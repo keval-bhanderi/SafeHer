@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% block title %}Alert Detail{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-8">
+    <div class="card border-danger">
+      <div class="card-header bg-danger text-white py-3">
+        <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>SOS Alert Active</h5>
+      </div>
+      <div class="card-body">
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="text-muted small">Triggered At</label>
+            <p class="fw-bold">{{ alert.triggered_at|date:"d M Y, h:i A" }}</p>
+          </div>
+          <div class="col-md-6">
+            <label class="text-muted small">Status</label>
+            <p>
+              <span class="badge rounded-pill
+                {% if alert.status == 'active' %}bg-danger
+                {% elif alert.status == 'resolved' %}bg-success
+                {% else %}bg-warning text-dark{% endif %} fs-6">
+                {{ alert.get_status_display }}
+              </span>
+            </p>
+          </div>
+          {% if alert.message %}
+          <div class="col-12">
+            <label class="text-muted small">Message</label>
+            <p class="fw-semibold">{{ alert.message }}</p>
+          </div>
+          {% endif %}
+        </div>
+        {% if alert.latitude %}
+        <div id="map" style="height:300px;border-radius:12px;" class="mb-3"></div>
+        {% endif %}
+        {% if alert.status == 'active' %}
+        <a href="{% url 'alerts:resolve' alert.id %}" class="btn btn-success fw-bold">
+          <i class="fas fa-check me-2"></i>Mark as Resolved
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+{% if alert.latitude %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const map = L.map('map').setView([{{ alert.latitude }}, {{ alert.longitude }}], 15);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+L.marker([{{ alert.latitude }}, {{ alert.longitude }}])
+  .addTo(map)
+  .bindPopup('<b>SOS Location</b>')
+  .openPopup();
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}Helplines{% endblock %}
+{% block content %}
+<h4 class="fw-bold mb-4"><i class="fas fa-phone me-2" style="color:var(--pink)"></i>Emergency Helplines</h4>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="get" class="d-flex gap-3 flex-wrap">
+      <select name="category" class="form-select" style="max-width:250px" onchange="this.form.submit()">
+        <option value="">All Categories</option>
+        {% for value, label in categories %}
+        <option value="{{ value }}" {% if selected_category == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+</div>
+
+<div class="row g-3">
+  {% for h in helplines %}
+  <div class="col-md-4 col-sm-6">
+    <div class="card h-100 text-center">
+      <div class="card-body py-4">
+        <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+             style="width:60px;height:60px;background:var(--pink-light)">
+          <i class="fas
+            {% if h.category == 'women' %}fa-female
+            {% elif h.category == 'police' %}fa-shield-alt
+            {% elif h.category == 'medical' %}fa-heartbeat
+            {% elif h.category == 'mental' %}fa-brain
+            {% elif h.category == 'legal' %}fa-balance-scale
+            {% elif h.category == 'child' %}fa-child
+            {% else %}fa-phone{% endif %}
+            fa-lg" style="color:var(--pink)"></i>
+        </div>
+        <h6 class="fw-bold mb-1">{{ h.name }}</h6>
+        <p class="text-muted small mb-2">{{ h.description|truncatechars:60 }}</p>
+        <a href="tel:{{ h.number }}" class="btn btn-pink fw-bold w-100 py-2">
+          <i class="fas fa-phone me-2"></i>{{ h.number }}
+        </a>
+        {% if h.available_24x7 %}
+        <small class="text-success mt-2 d-block"><i class="fas fa-clock me-1"></i>Available 24x7</small>
+        {% else %}
+        <small class="text-muted mt-2 d-block"><i class="fas fa-clock me-1"></i>Limited hours</small>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="col-12 text-center py-5">
+    <i class="fas fa-phone fa-3x text-muted mb-3"></i>
+    <p class="text-muted">No helplines found.</p>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
