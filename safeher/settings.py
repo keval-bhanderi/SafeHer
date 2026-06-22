@@ -1,4 +1,4 @@
-import os
+import os  # noqa: F401
 from pathlib import Path
 from datetime import timedelta
 import environ
@@ -14,6 +14,21 @@ environ.Env.read_env(BASE_DIR / '.env')
 SECRET_KEY = env('SECRET_KEY', default='django-safeher-secret-key-change-in-production-2024')
 DEBUG = env('DEBUG')
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['*'])
+
+# Render.com auto-provides this env var with your live hostname
+RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+
+# PythonAnywhere hostname (set manually via .env, e.g. yourusername.pythonanywhere.com)
+PYTHONANYWHERE_HOSTNAME = env('PYTHONANYWHERE_HOSTNAME', default='')
+if PYTHONANYWHERE_HOSTNAME:
+    ALLOWED_HOSTS.append(PYTHONANYWHERE_HOSTNAME)
+
+# Railway.app auto-provides this env var with your live public domain
+RAILWAY_PUBLIC_DOMAIN = os.environ.get('RAILWAY_PUBLIC_DOMAIN')
+if RAILWAY_PUBLIC_DOMAIN:
+    ALLOWED_HOSTS.append(RAILWAY_PUBLIC_DOMAIN)
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -40,6 +55,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -88,6 +104,14 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -133,6 +157,12 @@ CSRF_TRUSTED_ORIGINS = env.list(
     'CSRF_TRUSTED_ORIGINS',
     default=['http://127.0.0.1:8000', 'http://localhost:8000']
 )
+if RENDER_EXTERNAL_HOSTNAME:
+    CSRF_TRUSTED_ORIGINS.append(f'https://{RENDER_EXTERNAL_HOSTNAME}')
+if PYTHONANYWHERE_HOSTNAME:
+    CSRF_TRUSTED_ORIGINS.append(f'https://{PYTHONANYWHERE_HOSTNAME}')
+if RAILWAY_PUBLIC_DOMAIN:
+    CSRF_TRUSTED_ORIGINS.append(f'https://{RAILWAY_PUBLIC_DOMAIN}')
 
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/dashboard/'
