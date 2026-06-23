@@ -17,11 +17,14 @@ username = os.environ.get('DJANGO_SUPERUSER_USERNAME', 'admin')
 email = os.environ.get('DJANGO_SUPERUSER_EMAIL', 'admin@safeher.com')
 password = os.environ.get('DJANGO_SUPERUSER_PASSWORD', '')
 
+print(f"DEBUG: username='{username}'")
+print(f"DEBUG: email='{email}'")
+print(f"DEBUG: password set={'YES' if password else 'NO'}")
+
 if not password:
     print("WARNING: DJANGO_SUPERUSER_PASSWORD not set - skipping")
 else:
     if User.objects.filter(username=username).exists():
-        # Update existing user - reset password and ensure is_staff/is_superuser
         user = User.objects.get(username=username)
         user.set_password(password)
         user.is_staff = True
@@ -29,15 +32,27 @@ else:
         user.is_active = True
         user.role = 'admin'
         user.save()
-        print(f"SUCCESS: Superuser '{username}' password reset and permissions updated")
+        # Verify saved correctly
+        user.refresh_from_db()
+        print(f"DEBUG: is_staff={user.is_staff}")
+        print(f"DEBUG: is_superuser={user.is_superuser}")
+        print(f"DEBUG: is_active={user.is_active}")
+        print(f"DEBUG: password_check={user.check_password(password)}")
+        print(f"SUCCESS: Superuser '{username}' updated")
     else:
-        # Create new superuser
         user = User.objects.create_superuser(
             username=username,
             email=email,
             password=password,
         )
+        user.is_staff = True
+        user.is_superuser = True
+        user.is_active = True
         user.role = 'admin'
         user.save()
-        print(f"SUCCESS: Superuser '{username}' created successfully")
+        print(f"DEBUG: is_staff={user.is_staff}")
+        print(f"DEBUG: is_superuser={user.is_superuser}")
+        print(f"DEBUG: is_active={user.is_active}")
+        print(f"DEBUG: password_check={user.check_password(password)}")
+        print(f"SUCCESS: Superuser '{username}' created")
 EOF
