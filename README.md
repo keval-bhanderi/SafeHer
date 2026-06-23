@@ -2,7 +2,7 @@
 > A full-stack Django web app + REST API for women's safety
 
 ---
-
+![CI](https://github.com/keval-bhanderi/SafeHer/actions/workflows/ci.yml/badge.svg)
 ## 🚀 Quick Start
 
 ### 1. Clone & Setup Environment
