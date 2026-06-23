@@ -47,12 +47,16 @@ COPY --from=builder /install /usr/local
 # Copy project source code
 COPY . .
 
-# Create a non-root user to run the app (security best practice)
+# Create a non-root user with a proper home directory
 RUN addgroup --system django && \
-    adduser --system --ingroup django django && \
-    chown -R django:django /app
+    adduser --system --ingroup django --home /home/django --shell /bin/bash django && \
+    mkdir -p /home/django && \
+    chown -R django:django /app /home/django
 
 USER django
+
+# Set home directory explicitly so Gunicorn can write temp files
+ENV HOME=/home/django
 
 # Collect static files at build time
 RUN python manage.py collectstatic --no-input
@@ -65,4 +69,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/accounts/login/')" || exit 1
 
 # Run migrations then start Gunicorn
-CMD ["sh", "-c", "python manage.py migrate && python manage.py loaddata helpline/fixtures/helplines.json || true && gunicorn safeher.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120"]
+CMD ["sh", "-c", "python manage.py migrate && python manage.py loaddata helpline/fixtures/helplines.json || true && gunicorn safeher.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --worker-tmp-dir /tmp"]
