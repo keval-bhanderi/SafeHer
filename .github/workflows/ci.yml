@@ -1,4 +1,4 @@
-name: SafeHer CI Pipeline
+name: SafeHer CI/CD Pipeline
 
 on:
   push:
@@ -7,6 +7,8 @@ on:
     branches: [ main ]
 
 jobs:
+
+  # ── Job 1: Run Tests ────────────────────────────────────────────────────────
   test:
     name: Run Tests
     runs-on: ubuntu-latest
@@ -73,6 +75,7 @@ jobs:
           name: coverage-report
           path: coverage.xml
 
+  # ── Job 2: Lint Check ───────────────────────────────────────────────────────
   lint:
     name: Code Quality Check
     runs-on: ubuntu-latest
@@ -92,14 +95,11 @@ jobs:
 
       - name: Run flake8 lint check
         run: |
-          flake8 . \
-            --exclude=migrations,__pycache__,staticfiles,venv,.git \
-            --max-line-length=120 \
-            --ignore=E501,W503,E302,W292,E303 \
-            --count
+          flake8 . --exclude=migrations,__pycache__,staticfiles,venv,.git --max-line-length=120 --ignore=E501,W503,E302,W292,E303 --count
 
+  # ── Job 3: Docker Build & Push ──────────────────────────────────────────────
   docker:
-    name: Docker Build Check
+    name: Docker Build and Push
     runs-on: ubuntu-latest
     needs: test
 
@@ -108,56 +108,30 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build Docker image
-        run: |
-          docker build \
-            --build-arg SECRET_KEY=ci-build-check-key \
-            -t safeher:ci-test .
-<<<<<<< HEAD
+        run: docker build --build-arg SECRET_KEY=ci-build-check-key -t safeher:ci-test .
 
       - name: Push to Docker Hub
-        run: |
-          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-          docker tag safeher:ci-test kevalbhanderi20/safeher
-          docker push kevalbhanderi20/safeher
-=======
-      - name: Push to Docker Hub
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
           docker tag safeher:ci-test ${{ secrets.DOCKER_USERNAME }}/safeher:latest
           docker tag safeher:ci-test ${{ secrets.DOCKER_USERNAME }}/safeher:${{ github.sha }}
           docker push ${{ secrets.DOCKER_USERNAME }}/safeher:latest
           docker push ${{ secrets.DOCKER_USERNAME }}/safeher:${{ github.sha }}
- 
+
   # ── Job 4: Deploy to Render ─────────────────────────────────────────────────
   deploy:
     name: Deploy to Render
     runs-on: ubuntu-latest
-    needs: [ test, lint, docker ]
-    # Only deploy on push to main branch (not on pull requests or develop)
+    needs: [test, lint, docker]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
- 
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
- 
-      - name: Deploy to Render
+      - name: Trigger Render deployment
         run: |
-          curl -X POST \
-            "https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID }}/deploys" \
-            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
-            -H "Content-Type: application/json" \
-            -d '{"clearCache": false}'
- 
-      - name: Wait for deployment to complete
+          curl -X POST "https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID }}/deploys" -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" -H "Content-Type: application/json" -d '{"clearCache": false}'
+
+      - name: Deployment triggered
         run: |
-          echo "Deployment triggered on Render."
-          echo "Monitor progress at: https://dashboard.render.com"
-          sleep 10
- 
-      - name: Notify deployment success
-        run: |
-          echo "✅ SafeHer deployed successfully to Render!"
-          echo "🌐 Live URL: https://safeher.onrender.com"
-          echo "📦 Docker image: ${{ secrets.DOCKER_USERNAME }}/safeher:${{ github.sha }}"
- 
->>>>>>> a327813740cbefa23b43a50761e2e6cef961a49c
+          echo "SafeHer deployed successfully to Render!"
+          echo "Live URL: https://safeher.onrender.com"
